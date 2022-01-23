@@ -46,18 +46,28 @@ func (r *ItemListRepos) GetListById(id int) (model.Lists, error) {
 }
 
 func (r *ItemListRepos) UpdateListById(id int, title, description string) (int, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return 0, err
+	}
 	query := fmt.Sprintf("UPDATE %s SET (title,description) = ($1,$2) WHERE id = $3 RETURNING id", listTalbe)
 	row := r.db.QueryRow(query, title, description, id)
 	if err := row.Scan(&id); err != nil {
-		return id, err
+		tx.Rollback()
+		return 0, err
 	}
-	return id, nil
+	return id, tx.Commit()
 }
 
 func (r *ItemListRepos) DeleteListById(id int) error {
-	query := fmt.Sprintf("DELETE FROM %s WHERE id = $1", listTalbe)
-	if _, err := r.db.Query(query, id); err != nil {
+	tx, err := r.db.Begin()
+	if err != nil {
 		return err
 	}
-	return nil
+	query := fmt.Sprintf("DELETE FROM %s WHERE id = $1", listTalbe)
+	if _, err := r.db.Query(query, id); err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }
